@@ -57,29 +57,33 @@ prompt_pure_string_length() {
 	echo ${#str}
 }
 
+prompt_pure_git_pull() {
+	# check check if there is anything to pull
+	command git fetch &>/dev/null &
+
+	# check async if there is anything to pull
+	(( ${PURE_GIT_PULL:-1} )) && ({
+		# check if we're in a git repo
+		command git rev-parse --is-inside-work-tree &>/dev/null &&
+		# check if there is an upstream configured for this branch
+		command git rev-parse --abbrev-ref @'{u}' &>/dev/null && {
+			local arrows=''
+
+			(( $(command git rev-list --right-only --count HEAD...@'{u}' 2>/dev/null) > 0 )) && arrows='⇣'
+			(( $(command git rev-list --left-only --count HEAD...@'{u}' 2>/dev/null) > 0 )) && arrows+='⇡'
+			echo -en "\e[0;36m${arrows}\e[0m"
+		}
+	})
+}
+
 prompt_pure_precmd() {
 	local cwd=$(pwd | sed "s|^${HOME}|~|")
 
 	# shows the full path in the title
 	echo -en "\e]0;${cwd}\a"
 
-	local prompt_pure_preprompt="\n\e[0;34m${cwd} \e[0;37m$(__git_ps1 "%s")$(prompt_pure_git_dirty) $prompt_pure_username\e[0m \e[0;33m$(prompt_pure_cmd_exec_time)\e[0m"
+	local prompt_pure_preprompt="\n\e[0;34m${cwd} \e[0;37m$(__git_ps1 "%s")$(prompt_pure_git_dirty) $(prompt_pure_git_pull) $prompt_pure_username\e[0m \e[0;33m$(prompt_pure_cmd_exec_time)\e[0m"
 	echo -e $prompt_pure_preprompt
-
-	# check async if there is anything to pull
-	(( ${PURE_GIT_PULL:-1} )) && ({
-		# check if we're in a git repo
-		command git rev-parse --is-inside-work-tree &>/dev/null &&
-		# check check if there is anything to pull
-		command git fetch &>/dev/null &&
-		# check if there is an upstream configured for this branch
-		command git rev-parse --abbrev-ref @'{u}' &>/dev/null && {
-			local arrows=''
-			(( $(command git rev-list --right-only --count HEAD...@'{u}' 2>/dev/null) > 0 )) && arrows='⇣'
-			(( $(command git rev-list --left-only --count HEAD...@'{u}' 2>/dev/null) > 0 )) && arrows+='⇡'
-			echo -en "\e7\e[A\e[1G\e[$(prompt_pure_string_length "$prompt_pure_preprompt")C\e[0;36m${arrows}\e[0m\e8"
-		}
-	} &)
 
 	# reset value since `preexec` isn't always triggered
 	unset cmd_timestamp
